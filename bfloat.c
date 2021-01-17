@@ -22,6 +22,18 @@ float fp32tobf16(float x) {
     return y;
 }
 
-int main(){
+void print_hex(float x) {
+    int *p = (int *) &x;
+    printf("%f=%x\n", x, *p);
+}
+
+int main() {
+    float a[] = {3.140625, 1.2, 2.31, 3.46, 5.63};
+    for (int i = 0; i < sizeof(a) / sizeof(a[0]); i++) {
+        print_hex(a[i]);
+        float bf_a = fp32tobf16(a[i]);
+        print_hex(bf_a);
+    }
+
     return 0;
 }
