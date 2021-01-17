@@ -21,7 +21,9 @@ float fp32tobf16(float x) {
     *pr &= 0xff800000;
     r /= 256;
     y = x + r;
-
+	*pr &= 0x80000000;
+	*pr |= ((exp == 0) << 15);
+	y += r;
     *py &= 0xffff0000;
     return y;
 }
