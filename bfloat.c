@@ -8,17 +8,21 @@ float fp32tobf16(float x) {
     man = *py & 0x007FFFFFu;
     if (!exp && !man) /* zero */           
         return x;
-    if (exp == 0x7F800000u) /* infinity or NaN */
+    if (exp == 0x7F800000u){ /* infinity or NaN */
+        man = (man << 7) | (man << 14) | (man << 21);
+        man = man & 0x007F0000u;
+        *py = exp | man
         return x;
+    }
 
     /* Normalized number. round to nearest */
     float r = x;
     int *pr = (int *) &r;
-    *pr &= BB1;
+    *pr &= 0xff800000;
     r /= 256;
     y = x + r;
 
-    *py &= BB2;
+    *py &= 0xffff0000;
     return y;
 }
 
