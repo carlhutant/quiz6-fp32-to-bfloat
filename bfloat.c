@@ -8,12 +8,12 @@ float fp32tobf16(float x) {
     man = *py & 0x007FFFFFu;
     if (!exp && !man) /* zero */           
         return x;
-    if (exp == 0x7F800000u){ /* infinity or NaN */
-        man = (man << 7) | (man << 14) | (man << 21);
-        man = man & 0x007F0000u;
-        *py = exp | man
-        return x;
-    }
+    if (exp == 0x7F800000u) {  /* infinity or NaN */
+    // make sure the mantissa is non-zero if NaN
+    *py |= ((man != 0) << 16);
+    *py &= 0xFFFF0000;
+    return y;
+	}
 
     /* Normalized number. round to nearest */
     float r = x;
@@ -32,12 +32,28 @@ void print_hex(float x) {
 }
 
 int main() {
-    float a[] = {3.140625, 1.2, 2.31, 3.46, 5.63};
-    for (int i = 0; i < sizeof(a) / sizeof(a[0]); i++) {
-        print_hex(a[i]);
-        float bf_a = fp32tobf16(a[i]);
-        print_hex(bf_a);
+    unsigned int sign[] = {0x00000000, 0x80000000};
+    unsigned int exp[]={0x00000000, 0x07000000, 0x00800000, 0x7f800000};
+    unsigned int man[]={0x00000000, 0x00400000, 0x00000001, 0x007fffff};
+    unsigned int data=0;
+    printf("fp32tobf16\n");
+    for (int i = 0; i < sizeof(sign) / sizeof(sign[0]); i++) {
+        for (int j = 0; j < sizeof(exp) / sizeof(exp[0]); j++){
+            for (int k = 0; k < sizeof(man) / sizeof(man[0]); k++) {
+                data=0;
+                data|=sign[i];
+                data|=exp[j];
+                data|=man[k];
+                float *a=(float *)&data;
+                printf("sign is %x\n",sign[i]);
+                printf("exp is %x\n",exp[j]);
+                printf("man is %x\n",man[k]);
+                print_hex(*a);
+                float bf_a = fp32tobf16(*a);
+                print_hex(bf_a);
+                printf("\n");
+            }
+        }
     }
-
     return 0;
 }
