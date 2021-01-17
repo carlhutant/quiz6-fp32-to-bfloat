@@ -28,9 +28,42 @@ float fp32tobf16(float x) {
     return y;
 }
 
+double fp64tofp32(double x) {
+    double y = x;
+    long *py = (long *) &y;
+    unsigned long exp, man;
+    exp = *py & 0x7FF0000000000000u;
+    man = *py & 0x000FFFFFFFFFFFFFu;
+    if (!exp && !man){ /* zero */           
+        return x;
+    }
+    if (exp == 0x7FF0000000000000u){ /* infinity or NaN */
+        *py |= (long)(man != 0) << 32;
+        *py &= 0xFFFFFFFF00000000;
+        return y;
+    }
+    /* Normalized number. round to nearest */
+    double r = x;
+    unsigned long *pr = (long *) &r;
+    *pr &= 0xFFF0000000000000;
+    r /= 2097152;
+    y = x + r;
+    *pr &= 0x8000000000000000;
+    long tmp = (exp == 0);
+    *pr |= (tmp << 31);
+    y += r;
+    *py &= 0xFFFFFFFF00000000;
+    return y;
+}
+
 void print_hex(float x) {
     int *p = (int *) &x;
     printf("%f=%x\n", x, *p);
+}
+
+void print_long_hex(double x) {
+    long *p = (long *) &x;
+    printf("%lf=%lx\n", x, *p);
 }
 
 int main() {
@@ -57,5 +90,29 @@ int main() {
             }
         }
     }
+    printf("fp64tofp32\n");
+    unsigned long lsign[] = {0x0000000000000000, 0x8000000000000000};
+    unsigned long lexp[]={0x0000000000000000, 0x7000000000000000, 0x0010000000000000, 0x7ff0000000000000};
+    unsigned long lman[]={0x0000000000000000, 0x0008000000000000, 0x0000000080000000, 0x0000000000000001, 0x000fffffffffffff};
+    unsigned long ldata=0;
+    for (int i = 0; i < sizeof(lsign) / sizeof(lsign[0]); i++) {
+        for (int j = 0; j < sizeof(lexp) / sizeof(lexp[0]); j++){
+            for (int k = 0; k < sizeof(lman) / sizeof(lman[0]); k++) {
+                ldata=0;
+                ldata|=lsign[i];
+                ldata|=lexp[j];
+                ldata|=lman[k];
+                double *a=(double *)&ldata;
+                printf("sign is %lx\n",lsign[i]);
+                printf("exp is %lx\n",lexp[j]);
+                printf("man is %lx\n",lman[k]);
+                print_long_hex(*a);
+                double bf_a = fp64tofp32(*a);
+                print_long_hex(bf_a);
+                printf("\n");
+            }
+        }
+    }
+
     return 0;
 }
