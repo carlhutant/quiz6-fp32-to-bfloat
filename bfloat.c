@@ -29,41 +29,49 @@ float fp32tobf16(float x) {
 }
 
 double fp64tofp32(double x) {
-    double y = x;
-    long *py = (long *) &y;
-    unsigned long exp, man;
-    exp = *py & 0x7FF0000000000000u;
+	double y = x;
+	long *py = (long *) &y;
+	unsigned long exp62_60, exp, man;
+	exp62_60 = *py & 0x7000000000000000u;
+	exp = *py & 0x7FF0000000000000u;
     man = *py & 0x000FFFFFFFFFFFFFu;
-    if (!exp && !man){ /* zero */           
+	if (!exp && !man){ /* zero */           
         return x;
     }
-    if (exp == 0x7FF0000000000000u){ /* infinity or NaN */
+	if (exp == 0x7FF0000000000000u){ /* infinity or NaN */
+		*py &= 0xFF80000000000000;
         *py |= (long)(man != 0) << 32;
-        *py &= 0xFFFFFFFF00000000;
         return y;
     }
-    /* Normalized number. round to nearest */
+	/* Normalized and Denormalized number. round to nearest */
     double r = x;
     unsigned long *pr = (long *) &r;
+	if(exp62_60){
+		*py &= 0x8000000000000000;
+		*py |= 0x7F80000000000000;
+		return y;
+	}
     *pr &= 0xFFF0000000000000;
     r /= 2097152;
     y = x + r;
     *pr &= 0x8000000000000000;
     long tmp = (exp == 0);
-    *pr |= (tmp << 31);
+    *pr |= (tmp << 28);
     y += r;
+	*py = *py << 3;
+	*py |= *pr;
     *py &= 0xFFFFFFFF00000000;
     return y;
 }
 
 void print_hex(float x) {
     int *p = (int *) &x;
-    printf("%f=%x\n", x, *p);
+    printf("%08x", *p);
 }
 
 void print_long_hex(double x) {
     long *p = (long *) &x;
-    printf("%lf=%lx\n", x, *p);
+    printf("%016lx", *p);
 }
 
 int main() {
@@ -80,20 +88,23 @@ int main() {
                 data|=exp[j];
                 data|=man[k];
                 float *a=(float *)&data;
-                printf("sign is %x\n",sign[i]);
-                printf("exp is %x\n",exp[j]);
-                printf("man is %x\n",man[k]);
+                printf("sign is %08x\n",sign[i]);
+                printf("exp  is %08x\n",exp[j]);
+                printf("man  is %08x\n",man[k]);
+				printf("fp32   %f = ", *a);
                 print_hex(*a);
+				printf("\n");
                 float bf_a = fp32tobf16(*a);
+				printf("bfloat \t\t");
                 print_hex(bf_a);
-                printf("\n");
+                printf("\n\n");
             }
         }
     }
     printf("fp64tofp32\n");
     unsigned long lsign[] = {0x0000000000000000, 0x8000000000000000};
     unsigned long lexp[]={0x0000000000000000, 0x7000000000000000, 0x0010000000000000, 0x7ff0000000000000};
-    unsigned long lman[]={0x0000000000000000, 0x0008000000000000, 0x0000000080000000, 0x0000000000000001, 0x000fffffffffffff};
+    unsigned long lman[]={0x0000000000000000, 0x0008000000000000, 0x0000000010000000, 0x0000000000000001, 0x000fffffffffffff};
     unsigned long ldata=0;
     for (int i = 0; i < sizeof(lsign) / sizeof(lsign[0]); i++) {
         for (int j = 0; j < sizeof(lexp) / sizeof(lexp[0]); j++){
@@ -103,13 +114,19 @@ int main() {
                 ldata|=lexp[j];
                 ldata|=lman[k];
                 double *a=(double *)&ldata;
-                printf("sign is %lx\n",lsign[i]);
-                printf("exp is %lx\n",lexp[j]);
-                printf("man is %lx\n",lman[k]);
+                printf("sign is %016lx\n",lsign[i]);
+                printf("exp  is %016lx\n",lexp[j]);
+                printf("man  is %016lx\n",lman[k]);
+				printf("fp64 %lf = ", *a);
                 print_long_hex(*a);
-                double bf_a = fp64tofp32(*a);
-                print_long_hex(bf_a);
-                printf("\n");
+				printf("\n");
+				*a = fp64tofp32(*a);
+				ldata = ldata >> 32;
+				unsigned int data = (unsigned int)ldata;
+                float *fp32 = (float *)&data;
+				printf("fp32 %f = 00000000", *fp32);
+                print_hex(*fp32);
+                printf("\n\n");
             }
         }
     }
